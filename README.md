@@ -34,6 +34,16 @@ pnpm run deploy  # 部署到 Cloudflare（需先 `pnpm wrangler login`；`pnpm d
 
 正式環境的機密用 `pnpm wrangler secret put TURSO_DATABASE_URL` 等方式設定；本機 preview 讀 `.dev.vars`。
 
+### 正式環境
+
+- 網址：https://cangku-hub.<your-subdomain>.workers.dev ，整個 Worker（含 preview）放在 Cloudflare Access 後面，只允許本 Cloudflare 帳號成員，登入有效 7 天。
+- 資料庫：Turso 群組 `cangku`（東京 aws-ap-northeast-1）裡的 `cangku-hub`。Worker secret：`TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`（只限這個資料庫的 token）。
+- 對正式資料庫跑 migration（token 不落地）：
+
+  ```bash
+  TURSO_DATABASE_URL=$(turso db show cangku-hub --url) TURSO_AUTH_TOKEN=$(turso db tokens create cangku-hub) pnpm db:migrate
+  ```
+
 ## 技術備註
 
 - Next.js 16（Turbopack）。`cacheComponents` 未開啟。
