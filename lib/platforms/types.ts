@@ -25,6 +25,8 @@ export interface PlatformAdapter {
   label: string;
   /** False until the platform's real export columns have been confirmed (see columns.ts). */
   ready: boolean;
+  /** Status texts that mean cancelled; used when an item is mapped by hand after import. */
+  cancelledStatuses: readonly string[];
   /** Rows are sheet rows keyed by header, already stripped of PII columns. */
   parseOrders(rows: Record<string, unknown>[]): ParseResult;
 }

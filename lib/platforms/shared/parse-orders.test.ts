@@ -50,7 +50,8 @@ describe("parseOrderRows", () => {
   });
 
   it("reports missing columns", () => {
-    const { Qty: _qty, ...noQty } = row();
+    const noQty: Record<string, unknown> = row();
+    delete noQty.Qty;
     const res = parseOrderRows([noQty], cols);
     expect(res).toEqual({ ok: false, error: expect.stringContaining("Qty") });
   });
