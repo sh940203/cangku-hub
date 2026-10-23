@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 const CONTROL =
-  "min-h-12 w-full rounded-control border border-line bg-surface px-3 text-body text-ink lg:min-h-10";
+  "min-h-12 rounded-control border border-line bg-surface px-3 text-body text-ink lg:min-h-10";
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
