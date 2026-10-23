@@ -62,6 +62,30 @@ export async function recordMovement(db: Db | Tx, input: MovementInput): Promise
   return db.transaction((tx) => recordIn(tx, input));
 }
 
+/**
+ * Batch statements for many movements at once (order import). Movement inserts skip duplicates via the
+ * unique ref index, then each touched SKU's cache is recomputed from its movements, so the cache can never
+ * drift even if some inserts were duplicates. Callers must only pass physical SKUs.
+ */
+export function movementBatch(db: Db, inputs: readonly MovementInput[]) {
+  const inserts = inputs.map((m) => {
+    if (!Number.isInteger(m.delta) || m.delta === 0) throw new StockError(`invalid delta: ${m.delta}`);
+    return db
+      .insert(stockMovements)
+      .values({ skuId: m.skuId, delta: m.delta, reason: m.reason, refType: m.refType, refId: m.refId ?? null, note: m.note ?? null })
+      .onConflictDoNothing();
+  });
+  const recomputes = [...new Set(inputs.map((m) => m.skuId))].map((skuId) =>
+    db
+      .update(skus)
+      .set({
+        stock: sql`(select coalesce(sum(${stockMovements.delta}), 0) from ${stockMovements} where ${stockMovements.skuId} = ${skuId})`,
+      })
+      .where(eq(skus.id, skuId)),
+  );
+  return [...inserts, ...recomputes];
+}
+
 export type AdjustResult = { delta: number; stock: number };
 
 /** Stocktake: sets stock to the counted quantity by writing an `adjust` movement for the difference. */
