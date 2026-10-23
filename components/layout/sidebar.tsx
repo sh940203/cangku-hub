@@ -26,7 +26,7 @@ export function Sidebar() {
   return (
     <nav
       aria-label="側邊導覽"
-      className="fixed inset-y-0 left-0 hidden w-52 border-r border-line bg-surface p-3 lg:block"
+      className="fixed inset-y-0 left-0 hidden w-52 border-r border-line bg-surface p-3 lg:block print:hidden"
     >
       <ul className="space-y-0.5">
         {primaryNav.map((item) => (

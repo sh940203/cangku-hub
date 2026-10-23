@@ -7,7 +7,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar />
-      <main className="min-h-dvh px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] lg:ml-52 lg:px-8 lg:pt-6 lg:pb-8">
+      <main className="min-h-dvh px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] lg:ml-52 lg:px-8 lg:pt-6 lg:pb-8 print:m-0 print:p-0">
         {children}
       </main>
       <BottomTabs />
