@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed } from "next/font/google";
+import { SerwistProvider } from "@serwist/turbopack/react";
 import { AppShell } from "@/components/layout/app-shell";
 import "./globals.css";
 
@@ -32,8 +33,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-Hant" className={barlowCondensed.variable}>
+      <head>
+        {/* use-credentials so the manifest request passes Cloudflare Access */}
+        <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+      </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === "development"}>
+          <AppShell>{children}</AppShell>
+        </SerwistProvider>
       </body>
     </html>
   );
