@@ -13,7 +13,8 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:seed-demo": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
