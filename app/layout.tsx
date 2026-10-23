@@ -39,7 +39,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body>
-        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === "development"}>
+        <SerwistProvider
+          swUrl="/sw.js"
+          options={{ type: "classic" }}
+          disable={process.env.NODE_ENV === "development"}
+        >
           <AppShell>{children}</AppShell>
         </SerwistProvider>
       </body>
