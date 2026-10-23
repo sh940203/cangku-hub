@@ -1,11 +1,12 @@
 // Bundles app/sw.ts and injects the precache manifest into public/sw.js.
 // Runs after `next build` so .next/static exists; OpenNext then copies public/ into the Worker assets.
-import { randomUUID } from "node:crypto";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { injectManifest } from "@serwist/build";
 import { build } from "esbuild";
 
 const tmp = ".next/sw.bundle.js";
+// Static pages change only with a new build, so the build id is their revision.
+const revision = readFileSync(".next/BUILD_ID", "utf8").trim();
 
 await build({
   entryPoints: ["app/sw.ts"],
@@ -25,7 +26,8 @@ const { count, size, warnings } = await injectManifest({
   globPatterns: [".next/static/**/*.{js,css,woff2}", "public/**/*.{png,svg,ico,webmanifest}"],
   modifyURLPrefix: { ".next/static/": "/_next/static/", "public/": "/" },
   dontCacheBustURLsMatching: /^\/_next\/static\//,
-  additionalPrecacheEntries: [{ url: "/~offline", revision: randomUUID() }],
+  // /find must open offline (warehouse 4F has poor signal); its data comes from /api/snapshot.
+  additionalPrecacheEntries: ["/find", "/~offline"].map((url) => ({ url, revision })),
 });
 
 rmSync(tmp);
