@@ -27,22 +27,19 @@ export default async function SkuPage({ params }: PageProps<"/products/[id]/skus
   const productId = Number(idParam);
   const skuId = Number(skuParam);
   const db = getDb();
-  const [row] =
-    Number.isInteger(productId) && Number.isInteger(skuId)
-      ? await db
-          .select({ sku: skus, productName: products.name })
-          .from(skus)
-          .innerJoin(products, eq(products.id, skus.productId))
-          .where(and(eq(skus.id, skuId), eq(skus.productId, productId)))
-      : [];
+  if (!Number.isInteger(productId) || !Number.isInteger(skuId)) notFound();
+  const [[row], availability, locationOptions] = await Promise.all([
+    db
+      .select({ sku: skus, productName: products.name })
+      .from(skus)
+      .innerJoin(products, eq(products.id, skus.productId))
+      .where(and(eq(skus.id, skuId), eq(skus.productId, productId))),
+    getAvailability(db, [skuId]),
+    db.select({ id: locations.id, code: locations.code }).from(locations).orderBy(asc(locations.code)),
+  ]);
   if (!row) notFound();
   const { sku, productName } = row;
-  const available = (await getAvailability(db, [sku.id])).get(sku.id) ?? 0;
-
-  const locationOptions = await db
-    .select({ id: locations.id, code: locations.code })
-    .from(locations)
-    .orderBy(asc(locations.code));
+  const available = availability.get(sku.id) ?? 0;
 
   return (
     <div className="max-w-4xl space-y-8">
@@ -63,11 +60,7 @@ export default async function SkuPage({ params }: PageProps<"/products/[id]/skus
         </div>
       </div>
 
-      {sku.isBundle ? (
-        <BundleSection bundleSkuId={sku.id} />
-      ) : (
-        <MovementsSection skuId={sku.id} />
-      )}
+      {sku.isBundle ? <BundleSection bundleSkuId={sku.id} /> : <MovementsSection skuId={sku.id} />}
 
       <section className="border-t border-line pt-6">
         <h2 className="mb-2 text-section">貨號資料</h2>
@@ -97,35 +90,38 @@ export default async function SkuPage({ params }: PageProps<"/products/[id]/skus
 
 async function BundleSection({ bundleSkuId }: { bundleSkuId: number }) {
   const db = getDb();
-  const parts = await db
-    .select({
-      componentSkuId: bundleComponents.componentSkuId,
-      qty: bundleComponents.qty,
-      code: skus.code,
-      variantName: skus.variantName,
-      stock: skus.stock,
-      productName: products.name,
-      locationCode: locations.code,
-    })
-    .from(bundleComponents)
-    .innerJoin(skus, eq(skus.id, bundleComponents.componentSkuId))
-    .innerJoin(products, eq(products.id, skus.productId))
-    .leftJoin(locations, eq(locations.id, skus.locationId))
-    .where(eq(bundleComponents.bundleSkuId, bundleSkuId))
-    .orderBy(asc(skus.code));
-
-  const candidates = await db
-    .select({ id: skus.id, code: skus.code, variantName: skus.variantName, productName: products.name })
-    .from(skus)
-    .innerJoin(products, eq(products.id, skus.productId))
-    .where(and(eq(skus.isBundle, false), eq(skus.status, "active"), ne(skus.id, bundleSkuId)))
-    .orderBy(asc(products.name), asc(skus.code));
+  const [parts, candidates] = await Promise.all([
+    db
+      .select({
+        componentSkuId: bundleComponents.componentSkuId,
+        qty: bundleComponents.qty,
+        code: skus.code,
+        variantName: skus.variantName,
+        stock: skus.stock,
+        productName: products.name,
+        locationCode: locations.code,
+      })
+      .from(bundleComponents)
+      .innerJoin(skus, eq(skus.id, bundleComponents.componentSkuId))
+      .innerJoin(products, eq(products.id, skus.productId))
+      .leftJoin(locations, eq(locations.id, skus.locationId))
+      .where(eq(bundleComponents.bundleSkuId, bundleSkuId))
+      .orderBy(asc(skus.code)),
+    db
+      .select({ id: skus.id, code: skus.code, variantName: skus.variantName, productName: products.name })
+      .from(skus)
+      .innerJoin(products, eq(products.id, skus.productId))
+      .where(and(eq(skus.isBundle, false), eq(skus.status, "active"), ne(skus.id, bundleSkuId)))
+      .orderBy(asc(products.name), asc(skus.code)),
+  ]);
   const used = new Set(parts.map((p) => p.componentSkuId));
 
   return (
     <section>
       <h2 className="mb-1 text-section">部件</h2>
-      <p className="mb-3 text-aux text-ink-2">可售量 = 每個部件「庫存 ÷ 數量」取整數後的最小值。賣出組合時扣的是部件庫存。</p>
+      <p className="mb-3 text-aux text-ink-2">
+        可售量 = 每個部件「庫存 ÷ 數量」取整數後的最小值。賣出組合時扣的是部件庫存。
+      </p>
       {parts.length === 0 ? (
         <p className="mb-4 text-ink-2">還沒有部件，現在無法販售。在下面加入第一個部件。</p>
       ) : (
@@ -135,14 +131,25 @@ async function BundleSection({ bundleSkuId }: { bundleSkuId: number }) {
               <span className="w-28 font-code font-semibold text-tag">{p.code}</span>
               <span className="min-w-32 flex-1">
                 {p.variantName ?? p.productName}
-                <span className="ml-2 text-aux text-ink-2">庫存 {p.stock ?? 0} → 可湊 {Math.floor(Math.max(0, p.stock ?? 0) / p.qty)} 組</span>
+                <span className="ml-2 text-aux text-ink-2">
+                  庫存 {p.stock ?? 0} → 可湊 {Math.floor(Math.max(0, p.stock ?? 0) / p.qty)} 組
+                </span>
               </span>
               {p.locationCode && <LocationTag code={p.locationCode} />}
-              <ActionForm action={updateComponentQty.bind(null, bundleSkuId, p.componentSkuId)} className="flex items-center gap-2">
+              <ActionForm
+                action={updateComponentQty.bind(null, bundleSkuId, p.componentSkuId)}
+                className="flex items-center gap-2"
+              >
                 <label className="text-aux text-ink-2" htmlFor={`qty-${p.componentSkuId}`}>
                   數量
                 </label>
-                <Input id={`qty-${p.componentSkuId}`} name="qty" defaultValue={p.qty} inputMode="numeric" className="w-16" />
+                <Input
+                  id={`qty-${p.componentSkuId}`}
+                  name="qty"
+                  defaultValue={p.qty}
+                  inputMode="numeric"
+                  className="w-16"
+                />
                 <SubmitButton variant="text">更新</SubmitButton>
               </ActionForm>
               <ActionForm action={removeComponent.bind(null, bundleSkuId, p.componentSkuId)} className="contents">

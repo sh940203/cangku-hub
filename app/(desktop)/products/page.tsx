@@ -14,25 +14,27 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
   const q = String((await searchParams).q ?? "").trim();
   const db = getDb();
-  const rows = await db
-    .select({
-      productId: products.id,
-      productName: products.name,
-      category: products.category,
-      skuId: skus.id,
-      code: skus.code,
-      variantName: skus.variantName,
-      isBundle: skus.isBundle,
-      status: skus.status,
-      safetyStock: skus.safetyStock,
-      locationCode: locations.code,
-    })
-    .from(products)
-    .leftJoin(skus, eq(skus.productId, products.id))
-    .leftJoin(locations, eq(locations.id, skus.locationId))
-    .where(q ? or(like(products.name, `%${q}%`), like(skus.code, `%${q}%`)) : undefined)
-    .orderBy(asc(products.name), asc(skus.code));
-  const available = await getAvailability(db);
+  const [rows, available] = await Promise.all([
+    db
+      .select({
+        productId: products.id,
+        productName: products.name,
+        category: products.category,
+        skuId: skus.id,
+        code: skus.code,
+        variantName: skus.variantName,
+        isBundle: skus.isBundle,
+        status: skus.status,
+        safetyStock: skus.safetyStock,
+        locationCode: locations.code,
+      })
+      .from(products)
+      .leftJoin(skus, eq(skus.productId, products.id))
+      .leftJoin(locations, eq(locations.id, skus.locationId))
+      .where(q ? or(like(products.name, `%${q}%`), like(skus.code, `%${q}%`)) : undefined)
+      .orderBy(asc(products.name), asc(skus.code)),
+    getAvailability(db),
+  ]);
 
   const grouped = new Map<number, { name: string; category: string | null; skus: typeof rows }>();
   for (const r of rows) {
@@ -54,9 +56,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
       </form>
 
       {grouped.size === 0 ? (
-        <p className="text-ink-2">
-          {q ? `找不到「${q}」。` : "還沒有商品。按「新增商品」建立第一個。"}
-        </p>
+        <p className="text-ink-2">{q ? `找不到「${q}」。` : "還沒有商品。按「新增商品」建立第一個。"}</p>
       ) : (
         <table className="w-full max-w-5xl border-y border-line bg-surface">
           <thead className="text-left text-aux text-ink-2">

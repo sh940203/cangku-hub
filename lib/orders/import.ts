@@ -36,16 +36,24 @@ function chunks<T>(list: readonly T[]): T[][] {
 }
 
 const codeKey = (code: string) => code.normalize("NFKC").trim().toUpperCase();
-export const itemKey = (skuCode: string | null, name: string | null) => (skuCode ? `sku:${skuCode}` : `name:${name ?? ""}`);
+export const itemKey = (skuCode: string | null, name: string | null) =>
+  skuCode ? `sku:${skuCode}` : `name:${name ?? ""}`;
 export const itemRef = (platform: string, orderNo: string, key: string) => `${platform}:${orderNo}:${key}`;
 
 type SkuInfo = { id: number; code: string; isBundle: boolean };
-type Catalog = { byCode: Map<string, SkuInfo>; byId: Map<number, SkuInfo>; parts: Map<number, { skuId: number; qty: number }[]> };
+type Catalog = {
+  byCode: Map<string, SkuInfo>;
+  byId: Map<number, SkuInfo>;
+  parts: Map<number, { skuId: number; qty: number }[]>;
+};
 
 async function loadCatalog(db: Db): Promise<Catalog> {
-  const all = await db.select({ id: skus.id, code: skus.code, isBundle: skus.isBundle }).from(skus);
+  const [all, links] = await Promise.all([
+    db.select({ id: skus.id, code: skus.code, isBundle: skus.isBundle }).from(skus),
+    db.select().from(bundleComponents),
+  ]);
   const parts = new Map<number, { skuId: number; qty: number }[]>();
-  for (const l of await db.select().from(bundleComponents)) {
+  for (const l of links) {
     parts.set(l.bundleSkuId, [...(parts.get(l.bundleSkuId) ?? []), { skuId: l.componentSkuId, qty: l.qty }]);
   }
   return { byCode: new Map(all.map((s) => [codeKey(s.code), s])), byId: new Map(all.map((s) => [s.id, s])), parts };
@@ -69,7 +77,12 @@ async function loadMovements(db: Db, refs: string[]): Promise<ExistingMovement[]
   for (const part of chunks(refs)) {
     out.push(
       ...(await db
-        .select({ refId: stockMovements.refId, skuId: stockMovements.skuId, delta: stockMovements.delta, reason: stockMovements.reason })
+        .select({
+          refId: stockMovements.refId,
+          skuId: stockMovements.skuId,
+          delta: stockMovements.delta,
+          reason: stockMovements.reason,
+        })
         .from(stockMovements)
         .where(and(eq(stockMovements.refType, "order_item"), inArray(stockMovements.refId, part)))),
     );
@@ -91,10 +104,22 @@ export async function importOrders(db: Db, input: ImportInput): Promise<ImportSu
 
   // Group lines into orders, and same-SKU lines within an order into one item.
   type Item = { key: string; skuCode: string | null; name: string; qty: number };
-  type Order = { orderNo: string; status: string; cancelled: boolean; orderedAt: number | null; items: Map<string, Item> };
+  type Order = {
+    orderNo: string;
+    status: string;
+    cancelled: boolean;
+    orderedAt: number | null;
+    items: Map<string, Item>;
+  };
   const grouped = new Map<string, Order>();
   for (const l of input.lines) {
-    const o = grouped.get(l.orderNo) ?? { orderNo: l.orderNo, status: l.status, cancelled: l.cancelled, orderedAt: l.orderedAt, items: new Map() };
+    const o = grouped.get(l.orderNo) ?? {
+      orderNo: l.orderNo,
+      status: l.status,
+      cancelled: l.cancelled,
+      orderedAt: l.orderedAt,
+      items: new Map(),
+    };
     const key = itemKey(l.skuCode || null, l.name);
     const it = o.items.get(key);
     if (it) it.qty += l.qty;
@@ -116,12 +141,20 @@ export async function importOrders(db: Db, input: ImportInput): Promise<ImportSu
   const existingItems = new Map<string, { skuId: number | null; qty: number }>();
   for (const part of chunks([...existingOrders.values()].map((o) => o.id))) {
     const rows = await db
-      .select({ orderId: orderItems.orderId, skuId: orderItems.skuId, code: orderItems.rawSkuCode, name: orderItems.rawName, qty: orderItems.qty })
+      .select({
+        orderId: orderItems.orderId,
+        skuId: orderItems.skuId,
+        code: orderItems.rawSkuCode,
+        name: orderItems.rawName,
+        qty: orderItems.qty,
+      })
       .from(orderItems)
       .where(inArray(orderItems.orderId, part));
     for (const r of rows) existingItems.set(`${r.orderId}|${itemKey(r.code, r.name)}`, { skuId: r.skuId, qty: r.qty });
   }
-  const refs = [...grouped.values()].flatMap((o) => [...o.items.keys()].map((k) => itemRef(input.platform, o.orderNo, k)));
+  const refs = [...grouped.values()].flatMap((o) =>
+    [...o.items.keys()].map((k) => itemRef(input.platform, o.orderNo, k)),
+  );
   const existingMoves = await loadMovements(db, refs);
   const hasSale = (ref: string, skuId: number) =>
     existingMoves.some((m) => m.refId === ref && m.skuId === skuId && m.reason === "order");
@@ -133,7 +166,15 @@ export async function importOrders(db: Db, input: ImportInput): Promise<ImportSu
 
   const writes = [];
   const moves: MovementInput[] = [];
-  const summary: ImportSummary = { batchId: batch.id, orders: grouped.size, newOrders: 0, cancelled: 0, deducted: 0, unmatched: 0, emptyBundles: [] };
+  const summary: ImportSummary = {
+    batchId: batch.id,
+    orders: grouped.size,
+    newOrders: 0,
+    cancelled: 0,
+    deducted: 0,
+    unmatched: 0,
+    emptyBundles: [],
+  };
   let matchedItems = 0;
   const orderIdSql = (no: string) =>
     sql`(select ${orders.id} from ${orders} where ${orders.platform} = ${input.platform} and ${orders.platformOrderNo} = ${no})`;
@@ -144,7 +185,13 @@ export async function importOrders(db: Db, input: ImportInput): Promise<ImportSu
     writes.push(
       db
         .insert(orders)
-        .values({ platform: input.platform, platformOrderNo: o.orderNo, status: o.status, orderedAt: o.orderedAt ? new Date(o.orderedAt) : null, importBatchId: batch.id })
+        .values({
+          platform: input.platform,
+          platformOrderNo: o.orderNo,
+          status: o.status,
+          orderedAt: o.orderedAt ? new Date(o.orderedAt) : null,
+          importBatchId: batch.id,
+        })
         .onConflictDoUpdate({ target: [orders.platform, orders.platformOrderNo], set: { status: o.status } }),
     );
 
@@ -156,7 +203,16 @@ export async function importOrders(db: Db, input: ImportInput): Promise<ImportSu
       const qty = old ? old.qty : item.qty;
       if (!old) {
         writes.push(
-          db.insert(orderItems).values({ orderId: orderIdSql(o.orderNo), skuId, rawSkuCode: item.skuCode, rawName: item.name, qty, matched: skuId !== null }),
+          db
+            .insert(orderItems)
+            .values({
+              orderId: orderIdSql(o.orderNo),
+              skuId,
+              rawSkuCode: item.skuCode,
+              rawName: item.name,
+              qty,
+              matched: skuId !== null,
+            }),
         );
       }
       if (skuId === null) {

@@ -1,18 +1,16 @@
-import { inArray } from "drizzle-orm";
 import type { Db } from "@/db";
 import { bundleComponents, skus } from "@/db/schema";
 import { bundleAvailable, physicalAvailable } from "./available";
 
 /** Sellable quantity per SKU id. Bundles are computed from their components' current stock. */
 export async function getAvailability(db: Db, skuIds?: number[]): Promise<Map<number, number>> {
-  const rows = await db.select({ id: skus.id, isBundle: skus.isBundle, stock: skus.stock }).from(skus);
+  // Two small reads in parallel: one round trip to Turso instead of two.
+  const [rows, links] = await Promise.all([
+    db.select({ id: skus.id, isBundle: skus.isBundle, stock: skus.stock }).from(skus),
+    db.select().from(bundleComponents),
+  ]);
   const stockById = new Map(rows.map((r) => [r.id, r.stock]));
   const wanted = skuIds ? rows.filter((r) => skuIds.includes(r.id)) : rows;
-
-  const bundleIds = wanted.filter((r) => r.isBundle).map((r) => r.id);
-  const links = bundleIds.length
-    ? await db.select().from(bundleComponents).where(inArray(bundleComponents.bundleSkuId, bundleIds))
-    : [];
 
   const result = new Map<number, number>();
   for (const r of wanted) {

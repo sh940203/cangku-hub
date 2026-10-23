@@ -18,31 +18,28 @@ export const dynamic = "force-dynamic";
 export default async function ProductPage({ params }: PageProps<"/products/[id]">) {
   const id = Number((await params).id);
   const db = getDb();
-  const [product] = Number.isInteger(id) ? await db.select().from(products).where(eq(products.id, id)) : [];
+  if (!Number.isInteger(id)) notFound();
+  // All reads in parallel: one round trip of latency instead of four.
+  const [[product], skuRows, available, locationOptions] = await Promise.all([
+    db.select().from(products).where(eq(products.id, id)),
+    db
+      .select({
+        id: skus.id,
+        code: skus.code,
+        variantName: skus.variantName,
+        isBundle: skus.isBundle,
+        status: skus.status,
+        safetyStock: skus.safetyStock,
+        locationCode: locations.code,
+      })
+      .from(skus)
+      .leftJoin(locations, eq(locations.id, skus.locationId))
+      .where(eq(skus.productId, id))
+      .orderBy(asc(skus.code)),
+    getAvailability(db),
+    db.select({ id: locations.id, code: locations.code }).from(locations).orderBy(asc(locations.code)),
+  ]);
   if (!product) notFound();
-
-  const skuRows = await db
-    .select({
-      id: skus.id,
-      code: skus.code,
-      variantName: skus.variantName,
-      isBundle: skus.isBundle,
-      status: skus.status,
-      safetyStock: skus.safetyStock,
-      locationCode: locations.code,
-    })
-    .from(skus)
-    .leftJoin(locations, eq(locations.id, skus.locationId))
-    .where(eq(skus.productId, id))
-    .orderBy(asc(skus.code));
-  const available = await getAvailability(
-    db,
-    skuRows.map((s) => s.id),
-  );
-  const locationOptions = await db
-    .select({ id: locations.id, code: locations.code })
-    .from(locations)
-    .orderBy(asc(locations.code));
 
   return (
     <div className="max-w-4xl space-y-8">

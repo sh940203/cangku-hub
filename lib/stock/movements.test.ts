@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "@/db";
 import { bundleComponents, products, skus, stockMovements } from "@/db/schema";
 import { createTestDb } from "@/lib/test/db";
-import { adjustStock, recomputeStock, recordMovement, StockError } from "./movements";
+import { adjustStock, initialStockBatch, recomputeStock, recordMovement, StockError } from "./movements";
 import { getAvailability } from "./queries";
 
 let db: Db;
@@ -98,6 +98,30 @@ describe("adjustStock", () => {
     await expect(adjustStock(db, parts[0].id, -1)).rejects.toThrow(StockError);
     await expect(adjustStock(db, parts[0].id, 2.5)).rejects.toThrow(StockError);
     await expect(adjustStock(db, fullCar.id, 3)).rejects.toThrow(StockError);
+  });
+});
+
+describe("initialStockBatch", () => {
+  it("creates a SKU and its initial stock in one batch", async () => {
+    const [product] = await db.insert(products).values({ name: "棘輪扳手" }).returning();
+    await db.batch([
+      db.insert(skus).values({ code: "TL-1", productId: product.id, stock: 0 }),
+      ...initialStockBatch(db, "TL-1", 7),
+    ]);
+    const [sku] = await db.select().from(skus).where(eq(skus.code, "TL-1"));
+    expect(sku.stock).toBe(7);
+    expect(await db.select().from(stockMovements).where(eq(stockMovements.skuId, sku.id))).toMatchObject([
+      { delta: 7, reason: "initial" },
+    ]);
+  });
+
+  it("writes nothing when the SKU insert fails", async () => {
+    const [product] = await db.insert(products).values({ name: "棘輪扳手" }).returning();
+    await db.insert(skus).values({ code: "TL-1", productId: product.id, stock: 0 });
+    await expect(
+      db.batch([db.insert(skus).values({ code: "TL-1", productId: product.id, stock: 0 }), ...initialStockBatch(db, "TL-1", 7)]),
+    ).rejects.toThrow();
+    expect(await db.select().from(stockMovements)).toHaveLength(0);
   });
 });
 

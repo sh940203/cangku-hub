@@ -17,32 +17,30 @@ export default async function ImportPage() {
   const platforms = Object.values(adapters).map((a) => ({ id: a.id, label: a.label, ready: a.ready }));
   const labelOf = (id: string) => adapters[id as keyof typeof adapters]?.label ?? id;
 
-  const unmatched = await db
-    .select({
-      id: orderItems.id,
-      rawSkuCode: orderItems.rawSkuCode,
-      rawName: orderItems.rawName,
-      qty: orderItems.qty,
-      orderNo: orders.platformOrderNo,
-      platform: orders.platform,
-      status: orders.status,
-    })
-    .from(orderItems)
-    .innerJoin(orders, eq(orders.id, orderItems.orderId))
-    .where(isNull(orderItems.skuId))
-    .orderBy(desc(orders.orderedAt))
-    .limit(200);
-
-  const skuOptions = unmatched.length
-    ? await db
-        .select({ id: skus.id, code: skus.code, variantName: skus.variantName, productName: products.name })
-        .from(skus)
-        .innerJoin(products, eq(products.id, skus.productId))
-        .where(eq(skus.status, "active"))
-        .orderBy(asc(products.name), asc(skus.code))
-    : [];
-
-  const batches = await db.select().from(importBatches).orderBy(desc(importBatches.id)).limit(10);
+  const [unmatched, skuOptions, batches] = await Promise.all([
+    db
+      .select({
+        id: orderItems.id,
+        rawSkuCode: orderItems.rawSkuCode,
+        rawName: orderItems.rawName,
+        qty: orderItems.qty,
+        orderNo: orders.platformOrderNo,
+        platform: orders.platform,
+        status: orders.status,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(isNull(orderItems.skuId))
+      .orderBy(desc(orders.orderedAt))
+      .limit(200),
+    db
+      .select({ id: skus.id, code: skus.code, variantName: skus.variantName, productName: products.name })
+      .from(skus)
+      .innerJoin(products, eq(products.id, skus.productId))
+      .where(eq(skus.status, "active"))
+      .orderBy(asc(products.name), asc(skus.code)),
+    db.select().from(importBatches).orderBy(desc(importBatches.id)).limit(10),
+  ]);
 
   return (
     <>
@@ -56,18 +54,24 @@ export default async function ImportPage() {
         ) : (
           <>
             <p className="mb-3 text-aux text-ink-2">
-              有 {unmatched.length} 項貨號對不到商品，請手動對應。之後要少一點這種情況，可以把平台上的規格貨號改成系統裡的貨號。
+              有 {unmatched.length}{" "}
+              項貨號對不到商品，請手動對應。之後要少一點這種情況，可以把平台上的規格貨號改成系統裡的貨號。
             </p>
             <ul className="divide-y divide-line border-y border-line bg-surface">
               {unmatched.map((u) => (
                 <li key={u.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
                   <span className="min-w-60 flex-1">
-                    <span className="block">「{u.rawName}」× {u.qty}</span>
+                    <span className="block">
+                      「{u.rawName}」× {u.qty}
+                    </span>
                     <span className="text-aux text-ink-2">
                       {labelOf(u.platform)} {u.orderNo}・貨號 {u.rawSkuCode ?? "（空白）"}・{u.status}
                     </span>
                   </span>
-                  <ActionForm action={mapItemAction.bind(null, u.id, u.platform)} className="flex flex-wrap items-center gap-2">
+                  <ActionForm
+                    action={mapItemAction.bind(null, u.id, u.platform)}
+                    className="flex flex-wrap items-center gap-2"
+                  >
                     <Select name="skuId" defaultValue="" required aria-label="對應到貨號" className="w-72">
                       <option value="" disabled>
                         選擇貨號
@@ -107,7 +111,9 @@ export default async function ImportPage() {
                   <td className="px-3">{labelOf(b.platform)}</td>
                   <td className="px-3">{b.filename}</td>
                   <td className="px-3 text-right font-code font-semibold">{b.rowCount}</td>
-                  <td className={`px-3 text-right font-code font-semibold ${b.unmatchedCount ? "text-warn" : ""}`}>{b.unmatchedCount}</td>
+                  <td className={`px-3 text-right font-code font-semibold ${b.unmatchedCount ? "text-warn" : ""}`}>
+                    {b.unmatchedCount}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { bundleComponents, orderItems, platformListings, products, skus, stockMovements } from "@/db/schema";
 import { type FormState, int, isUniqueViolation, num, optStr, str } from "@/lib/form";
-import { recordMovement } from "@/lib/stock/movements";
+import { initialStockBatch } from "@/lib/stock/movements";
 
 // ---------- products ----------
 
@@ -75,16 +75,15 @@ export async function createSku(productId: number, _: FormState, fd: FormData): 
   const db = getDb();
   let skuId: number;
   try {
-    skuId = await db.transaction(async (tx) => {
-      const [sku] = await tx
+    // One atomic batch: the SKU, then its initial stock (addressed by code since the id is not known yet).
+    const [[sku]] = await db.batch([
+      db
         .insert(skus)
         .values({ ...common, ...physical, productId, isBundle, stock: isBundle ? null : 0 })
-        .returning({ id: skus.id });
-      if (initial) {
-        await recordMovement(tx, { skuId: sku.id, delta: initial, reason: "initial", refType: "manual" });
-      }
-      return sku.id;
-    });
+        .returning({ id: skus.id }),
+      ...(initial ? initialStockBatch(db, common.code, initial) : []),
+    ]);
+    skuId = sku.id;
   } catch (e) {
     if (isUniqueViolation(e)) return { error: `貨號 ${common.code} 已經有人用了。` };
     throw e;

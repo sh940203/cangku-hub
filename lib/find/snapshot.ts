@@ -5,24 +5,26 @@ import type { Snapshot, SnapshotSku } from "./types";
 
 /** Everything the find page needs offline: SKUs, locations, stock and bundle parts. No customer data. */
 export async function buildSnapshot(db: Db): Promise<Snapshot> {
-  const rows = await db
-    .select({
-      id: skus.id,
-      code: skus.code,
-      barcode: skus.barcode,
-      productName: products.name,
-      variantName: skus.variantName,
-      isBundle: skus.isBundle,
-      status: skus.status,
-      stock: skus.stock,
-      safetyStock: skus.safetyStock,
-      locationCode: locations.code,
-    })
-    .from(skus)
-    .innerJoin(products, eq(products.id, skus.productId))
-    .leftJoin(locations, eq(locations.id, skus.locationId))
-    .orderBy(asc(products.name), asc(skus.code));
-  const links = await db.select().from(bundleComponents);
+  const [rows, links] = await Promise.all([
+    db
+      .select({
+        id: skus.id,
+        code: skus.code,
+        barcode: skus.barcode,
+        productName: products.name,
+        variantName: skus.variantName,
+        isBundle: skus.isBundle,
+        status: skus.status,
+        stock: skus.stock,
+        safetyStock: skus.safetyStock,
+        locationCode: locations.code,
+      })
+      .from(skus)
+      .innerJoin(products, eq(products.id, skus.productId))
+      .leftJoin(locations, eq(locations.id, skus.locationId))
+      .orderBy(asc(products.name), asc(skus.code)),
+    db.select().from(bundleComponents),
+  ]);
 
   const byBundle = new Map<number, SnapshotSku["components"]>();
   for (const l of links) {
