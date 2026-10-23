@@ -19,7 +19,11 @@
 
 ## 技術棧
 
-Next.js App Router + TypeScript、Turso（LibSQL）+ Drizzle、Cloudflare（`@opennextjs/cloudflare`）、R2、Tailwind、Serwist（`@serwist/next`）、SheetJS（官方 CDN 安裝，不用 npm 的 `xlsx`）。驗證由 Cloudflare Access 處理，不自寫登入。
+Next.js 16 App Router（Turbopack）+ TypeScript、Turso（LibSQL）+ Drizzle、Cloudflare（`@opennextjs/cloudflare`）、R2、Tailwind v4、Serwist、SheetJS（官方 CDN 安裝，不用 npm 的 `xlsx`）。驗證由 Cloudflare Access 處理，不自寫登入。套件管理用 pnpm。
+
+- Next 16 與訓練資料不同：寫程式前查 `node_modules/next/dist/docs/`。
+- `cacheComponents` 不開。Service worker 寫在 `app/sw.ts`，由 `scripts/build-sw.mjs` 在建置時輸出 `public/sw.js`（不用 route handler，因為 esbuild 不能打包進 Worker）。
+- 時間欄位存 unix 毫秒。色彩 token 在 `app/globals.css`。
 
 ## 開發慣例
 
