@@ -21,6 +21,7 @@ pnpm build && pnpm start
 ## 資料庫
 
 - schema：`db/schema.ts`；改完執行 `pnpm db:generate` 產生 migration。
+- 清空本機資料：`rm local.db && pnpm db:migrate`，之後要重開 `pnpm dev`（舊的連線還指著被刪掉的檔案）。
 - 連線遠端 Turso：在 `.env.local` 填 `TURSO_DATABASE_URL`（`libsql://...`）與 `TURSO_AUTH_TOKEN`，再執行 `pnpm db:migrate`。
 
 ## Cloudflare
