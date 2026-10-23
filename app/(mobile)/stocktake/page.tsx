@@ -50,7 +50,7 @@ export default async function StocktakePage({ searchParams }: PageProps<"/stockt
         <ul className="-mx-4 divide-y divide-line border-y border-line bg-surface lg:mx-0">
           {rows.map((r) => (
             <li key={r.id}>
-              <Link href={`/stocktake/${r.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2">
+              <Link href={`/stocktake/${r.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 active:bg-bg">
                 <span className="flex-1">
                   <span className="block">
                     {r.productName} {r.variantName}

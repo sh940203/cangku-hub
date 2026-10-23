@@ -9,7 +9,7 @@ export default function TodayPage() {
       <ul className="divide-y divide-line border-y border-line bg-surface">
         {todayLinks.map((item) => (
           <li key={item.href}>
-            <Link href={item.href} className="flex min-h-14 items-center justify-between px-4">
+            <Link href={item.href} className="flex min-h-14 items-center justify-between px-4 active:bg-bg">
               {item.label}
               <span aria-hidden="true" className="text-ink-2">
                 ›

@@ -63,7 +63,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
               <li key={s.id}>
                 <Link
                   href={`/products/${id}/skus/${s.id}`}
-                  className={`flex min-h-14 items-center gap-3 px-3 hover:bg-bg ${s.status === "archived" ? "text-ink-2" : ""}`}
+                  className={`flex min-h-14 items-center gap-3 px-3 hover:bg-bg active:bg-bg ${s.status === "archived" ? "text-ink-2" : ""}`}
                 >
                   <span className="w-28 font-code font-semibold text-tag">{s.code}</span>
                   <span className="flex-1">

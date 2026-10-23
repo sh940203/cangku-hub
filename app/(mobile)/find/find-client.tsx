@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { LocationTag } from "@/components/stock/location-tag";
 import { StockNumber } from "@/components/stock/stock-number";
 import { Input } from "@/components/ui/field";
+import { SkeletonList } from "@/components/ui/skeleton";
 import { searchSkus, snapshotAvailability } from "@/lib/find/search";
 import type { Snapshot, SnapshotSku } from "@/lib/find/types";
 
@@ -116,7 +117,7 @@ export function FindClient() {
         />
       </form>
 
-      {load.state === "loading" && <SkeletonList />}
+      {load.state === "loading" && <SkeletonList rows={3} />}
       {load.state === "error" && (
         <p className="text-ink-2">還沒有存過商品資料。連上網路後開一次找貨頁，之後離線也能查。</p>
       )}
@@ -132,7 +133,7 @@ export function FindClient() {
                 <button
                   type="button"
                   onClick={() => select(s.id)}
-                  className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left"
+                  className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-bg"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block">{skuLabel(s)}</span>
@@ -211,7 +212,7 @@ function SkuDetail({
                   <button
                     type="button"
                     onClick={() => onSelect(p.skuId)}
-                    className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left"
+                    className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-bg"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block">
@@ -237,17 +238,4 @@ function SkuDetail({
 
 function SnapshotTime({ at }: { at: number }) {
   return <p className="mt-6 text-aux text-ink-2">資料時間 {timeFmt.format(at)}</p>;
-}
-
-function SkeletonList() {
-  return (
-    <ul aria-label="載入中" className="-mx-4 divide-y divide-line border-y border-line bg-surface lg:mx-0">
-      {[0, 1, 2].map((i) => (
-        <li key={i} className="flex min-h-14 items-center gap-3 px-4">
-          <span className="h-4 flex-1 rounded bg-line" />
-          <span className="h-5 w-16 rounded bg-line" />
-        </li>
-      ))}
-    </ul>
-  );
 }

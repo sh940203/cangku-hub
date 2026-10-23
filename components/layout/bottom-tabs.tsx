@@ -14,13 +14,13 @@ export function BottomTabs() {
     >
       <ul className="grid grid-cols-4">
         {primaryNav.map((item) => {
-          const active = isActive(pathname, item.href);
+          const active = isActive(pathname, item);
           return (
             <li key={item.href}>
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-aux ${
+                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-aux active:bg-bg ${
                   active ? "text-action" : "text-ink-2"
                 }`}
               >

@@ -119,6 +119,16 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* No double-tap zoom delay; our own :active states replace the grey tap flash. */
+  a,
+  button,
+  input,
+  select,
+  label {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   :focus-visible {
     outline: 2px solid var(--action);
     outline-offset: 2px;

@@ -1,10 +1,11 @@
 export type NavIcon = "today" | "find" | "ship" | "list";
 
-export type NavItem = { href: string; label: string; icon?: NavIcon };
+export type NavItem = { href: string; label: string; icon?: NavIcon; /** Other paths that light up this item. */ also?: string[] };
 
 // Bottom tabs on mobile; also the top group of the desktop sidebar.
 export const primaryNav: NavItem[] = [
-  { href: "/", label: "今日", icon: "today" },
+  // Pages opened from 今日 keep the 今日 tab lit.
+  { href: "/", label: "今日", icon: "today", also: ["/tasks", "/restock", "/stocktake"] },
   { href: "/find", label: "找貨", icon: "find" },
   { href: "/ship", label: "出貨", icon: "ship" },
   { href: "/list", label: "上架", icon: "list" },
@@ -25,6 +26,9 @@ export const todayLinks: NavItem[] = [
   { href: "/stocktake", label: "盤點" },
 ];
 
-export function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+const under = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+export function isActive(pathname: string, item: NavItem) {
+  if (item.also?.some((p) => under(pathname, p))) return true;
+  return item.href === "/" ? pathname === "/" : under(pathname, item.href);
 }

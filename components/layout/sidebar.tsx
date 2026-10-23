@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { desktopNav, isActive, primaryNav, type NavItem } from "@/lib/nav";
 
 function SidebarLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const active = isActive(pathname, item.href);
+  const active = isActive(pathname, item);
   return (
     <li>
       <Link
