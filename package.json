@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:check": "node --env-file-if-exists=.env.local scripts/db-check.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
