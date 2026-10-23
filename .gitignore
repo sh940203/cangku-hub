@@ -1,0 +1,29 @@
+# deps / build
+node_modules/
+.next/
+.open-next/
+out/
+.wrangler/
+*.tsbuildinfo
+next-env.d.ts
+
+# PWA build output
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+# env
+.env*
+!.env.example
+.dev.vars
+
+# local db
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# platform sample files may contain customer data
+samples/
+
+.DS_Store
