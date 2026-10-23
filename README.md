@@ -26,8 +26,8 @@ pnpm build && pnpm start
 ## Cloudflare
 
 ```bash
-pnpm preview   # 以 Workers runtime 在本機跑正式建置（wrangler，port 8787）
-pnpm deploy    # 部署到 Cloudflare（需先 `pnpm wrangler login`）
+pnpm preview     # 以 Workers runtime 在本機跑正式建置（wrangler，port 8787）
+pnpm run deploy  # 部署到 Cloudflare（需先 `pnpm wrangler login`；`pnpm deploy` 是 pnpm 內建指令，要加 run）
 ```
 
 正式環境的機密用 `pnpm wrangler secret put TURSO_DATABASE_URL` 等方式設定；本機 preview 讀 `.dev.vars`。
