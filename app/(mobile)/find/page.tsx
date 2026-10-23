@@ -1,11 +1,12 @@
 import { PageHeader } from "@/components/ui/page-header";
-import { Placeholder } from "@/components/ui/placeholder";
+import { FindClient } from "./find-client";
 
+// Static shell (precached by the service worker); search runs in the browser over /api/snapshot.
 export default function FindPage() {
   return (
     <>
       <PageHeader title="找貨" />
-      <Placeholder milestone="M2" />
+      <FindClient />
     </>
   );
 }
