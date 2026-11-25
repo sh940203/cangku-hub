@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { readSalesInfo, salesInfoXlsx } from "./fixtures";
+import { readSalesInfo, salesInfoXlsx, WEATHERSTRIP } from "./fixtures";
 
 // The MVP loop with a made-up catalog: import Shopee listings → write codes back → turn 一車份 into a bundle
 // → a part's stock drops → the stock file carries the new numbers → 已上傳 clears the pending list.
@@ -87,11 +87,17 @@ test("selling a part shows the part and the bundle as pending", async ({ page })
 
 test("the stock file carries the new numbers and 已上傳 clears the list", async ({ page }) => {
   await page.goto("/export");
-  const back = await download(page, () => page.locator('input[type="file"]').setInputFiles(template()));
+  // Meanwhile one 前左 sold on Shopee (orders are not imported): Shopee now says 4, we still say 5.
+  const latest = {
+    ...template(),
+    buffer: salesInfoXlsx(WEATHERSTRIP.map((v) => (v.variant === "90011" ? { ...v, stock: 4 } : v))),
+  };
+  const back = await download(page, () => page.locator('input[type="file"]').setInputFiles(latest));
   expect(back.byVariant.get("90013")).toMatchObject({ sku: "P0001-03", stock: "1", price: "150" });
   expect(back.byVariant.get("90015")).toMatchObject({ sku: "P0001-05", stock: "1" });
-  expect(back.byVariant.get("90011")?.stock).toBe("5");
-  await expect(page.getByRole("status")).toContainText("其中 2 個和蝦皮現在不同");
+  // not pending on our side, so Shopee's own number stays and the sale is not undone
+  expect(back.byVariant.get("90011")).toMatchObject({ sku: "P0001-01", stock: "4" });
+  await expect(page.getByRole("status")).toContainText("2 個待更新規格填入系統可售量，其中 2 個和蝦皮現在不同");
 
   await page.getByRole("button", { name: "已上傳到蝦皮" }).click();
   await expect(page.getByRole("status").last()).toContainText("已記錄");

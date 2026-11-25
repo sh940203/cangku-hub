@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import type { Db } from "@/db";
-import { bundleComponents, skus } from "@/db/schema";
+import { bundleComponents, platformListings, skus } from "@/db/schema";
 import { importListings } from "@/lib/catalog/import-listings";
 import type { ListingLine } from "@/lib/platforms/types";
 import { convertToBundle } from "@/lib/stock/convert-bundle";
@@ -44,13 +44,27 @@ it("MVP loop: selling a part lowers the bundle, both get pushed, then nothing is
   ]);
 
   const values = await pushValues(db, "shopee", ["1", "3", "5", "999"]);
-  expect(values.get("3")).toMatchObject({ skuCode: "P0001-03", stock: 1 });
-  expect(values.get("5")).toMatchObject({ skuCode: "P0001-05", productCode: "P0001", stock: 1 });
-  expect(values.get("1")?.stock).toBe(5);
+  expect(values.get("3")).toEqual({ skuCode: "P0001-03", productCode: "P0001", stock: 1 });
+  expect(values.get("5")).toEqual({ skuCode: "P0001-05", productCode: "P0001", stock: 1 });
+  // unchanged on our side: codes only, the platform keeps its own number (it may have sold some)
+  expect(values.get("1")).toEqual({ skuCode: "P0001-01", productCode: "P0001" });
   expect(values.has("999")).toBe(false);
 
-  await markPushed(db, "shopee", [...values].map(([variantId, v]) => ({ variantId, stock: v.stock })));
+  await markPushed(
+    db,
+    "shopee",
+    [...values].flatMap(([variantId, v]) => (v.stock === undefined ? [] : [{ variantId, stock: v.stock }])),
+  );
   expect(await pendingPushes(db, "shopee")).toEqual([]);
+});
+
+it("listings imported before last_pushed_stock was recorded fall back to their imported stock", async () => {
+  await db.update(platformListings).set({ lastPushedStock: null });
+  expect(await pendingPushes(db, "shopee")).toEqual([]);
+  await recordMovement(db, { skuId: id["前左"], delta: -1, reason: "order", refType: "manual" });
+  expect((await pendingPushes(db, "shopee")).map((p) => [p.variantName, p.lastPushed, p.available])).toEqual([
+    ["前左", 5, 4],
+  ]);
 });
 
 it("oversold stock is pushed as 0", async () => {

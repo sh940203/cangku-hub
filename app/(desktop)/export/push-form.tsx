@@ -38,12 +38,16 @@ export function PushForm({ platform }: { platform: { id: string; label: string; 
         ws[utils.encode_cell({ r: e.row, c: e.col })] =
           typeof e.value === "number" ? { t: "n", v: e.value } : { t: "s", v: e.value };
       }
-      const changed = parsed.lines.filter((l) => map.has(l.variantId) && map.get(l.variantId)!.stock !== l.stock).length;
+      const entries = [...map].flatMap(([variantId, v]) => (v.stock === undefined ? [] : [{ variantId, stock: v.stock }]));
+      const changed = parsed.lines.filter((l) => {
+        const v = map.get(l.variantId);
+        return v?.stock !== undefined && v.stock !== l.stock;
+      }).length;
       const filename = file.name.replace(/\.xlsx?$/i, "") + "_庫存.xlsx";
       writeFile(wb, filename);
       setBuilt({
         filename,
-        entries: [...map].map(([variantId, v]) => ({ variantId, stock: v.stock })),
+        entries,
         changed,
         unknown: parsed.lines.length - map.size,
       });
@@ -69,7 +73,10 @@ export function PushForm({ platform }: { platform: { id: string; label: string; 
 
       <div className="space-y-2">
         <h2 className="text-section">2. 選擇檔案，下載填好庫存的檔案</h2>
-        <p className="text-aux text-ink-2">系統只改「庫存」和貨號兩欄，其他欄位原封不動。</p>
+        <p className="text-aux text-ink-2">
+          系統只改待更新規格的「庫存」，並補上貨號；其他規格的庫存和所有其他欄位都保留{platform.label}上現在的樣子，
+          所以{platform.label}上已賣掉的數量不會被加回去。
+        </p>
         <input
           type="file"
           accept=".xlsx,.xls"
@@ -88,13 +95,14 @@ export function PushForm({ platform }: { platform: { id: string; label: string; 
         )}
         {built && (
           <p role="status" className="rounded-control bg-ok-bg px-3 py-2 text-ok">
-            已下載 {built.filename}：{built.entries.length} 個規格填入系統可售量，其中 {built.changed} 個和{platform.label}現在不同。
+            已下載 {built.filename}：{built.entries.length} 個待更新規格填入系統可售量，其中 {built.changed} 個和
+            {platform.label}現在不同。其他規格保留{platform.label}上的庫存。
             {built.unknown > 0 && ` ${built.unknown} 個規格不在系統裡，維持原樣。`}
           </p>
         )}
       </div>
 
-      {built && (
+      {built && built.entries.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-section">3. 上傳到{platform.label}後，按「已上傳」</h2>
           <p className="text-aux text-ink-2">
