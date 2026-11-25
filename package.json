@@ -14,7 +14,8 @@
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:seed-demo": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs"
+    "db:seed-demo": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
@@ -28,6 +29,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
     "@serwist/build": "9.5.13",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",

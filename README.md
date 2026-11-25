@@ -18,6 +18,18 @@ Service worker 在 `pnpm dev` 時停用。要測 PWA／離線找貨，用正式�
 pnpm build && pnpm start
 ```
 
+## 測試
+
+```bash
+pnpm test        # 單元測試（Vitest）：庫存、訂單匯入、個資過濾、平台檔解析
+pnpm test:e2e    # 端對端測試（Playwright）
+```
+
+- 端對端測試會自己啟動 `next dev --port 3200`，資料庫用專案目錄下的 `e2e.db`（每次重建，不會碰 `local.db` 或 Turso）。
+- 第一次要先裝瀏覽器：`pnpm exec playwright install chromium`。
+- `e2e/catalog-sync.spec.ts` 用假的蝦皮「價格及庫存」檔跑一次 MVP 循環：匯入商品 → 回填貨號 → 改成組合 → 部件庫存變動 → 產生庫存檔 → 已上傳。
+- 失敗時看 `pnpm exec playwright show-trace test-results/<測試>/trace.zip`。
+
 ## 資料庫
 
 - schema：`db/schema.ts`；改完執行 `pnpm db:generate` 產生 migration。
