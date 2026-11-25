@@ -34,7 +34,8 @@ describe("importListings", () => {
       { code: "P0002", name: null, stock: 3 },
     ]);
     expect((await db.select().from(products)).map((p) => p.name)).toEqual(["商品11", "商品12"]);
-    expect(await db.select().from(platformListings)).toHaveLength(3);
+    const links = await db.select().from(platformListings);
+    expect(links.map((x) => x.lastPushedStock)).toEqual([5, 0, 3]);
   });
 
   it("stock cache equals the sum of movements", async () => {
@@ -79,6 +80,7 @@ describe("importListings", () => {
     expect(s).toEqual({ newProducts: 0, newSkus: 0, linked: 1, existing: 0, stockAdded: 0 });
     const [link] = await db.select().from(platformListings);
     expect(link.skuId).toBe(sku.id);
+    expect(link.lastPushedStock).toBeNull();
     expect((await db.select().from(skus).where(eq(skus.id, sku.id)))[0].stock).toBe(4);
   });
 

@@ -120,6 +120,7 @@ export async function importListings(
     if (plan.skus.length || plan.link.length) plans.push(plan);
   }
 
+  const now = new Date();
   const skuIdOf = (code: string) => sql`(select ${skus.id} from ${skus} where ${skus.code} = ${code})`;
   // Each batch is atomic and holds whole products, so a failed import can simply be run again.
   for (const part of chunks(plans, PRODUCTS_PER_BATCH)) {
@@ -136,13 +137,22 @@ export async function importListings(
           ),
         );
       }
+      // New SKUs start with the platform's own number, so the platform is already in sync; linked SKUs keep
+      // our stock and are left unsynced (null) so they show up as needing a push.
       const listingRows = [
-        ...p.skus.map((s) => ({ skuId: skuIdOf(s.code), line: s.line })),
-        ...p.link.map((l) => ({ skuId: l.skuId, line: l.line })),
+        ...p.skus.map((s) => ({ skuId: skuIdOf(s.code), line: s.line, pushed: s.line.stock })),
+        ...p.link.map((l) => ({ skuId: l.skuId, line: l.line, pushed: null })),
       ];
       writes.push(
         db.insert(platformListings).values(
-          listingRows.map((r) => ({ skuId: r.skuId, platform, platformItemId: r.line.itemId, platformVariantId: r.line.variantId })),
+          listingRows.map((r) => ({
+            skuId: r.skuId,
+            platform,
+            platformItemId: r.line.itemId,
+            platformVariantId: r.line.variantId,
+            lastPushedStock: r.pushed,
+            lastPushedAt: r.pushed === null ? null : now,
+          })),
         ),
       );
       const stocked = p.skus.filter((s) => s.line.stock > 0);
