@@ -36,7 +36,6 @@ export async function pendingPushes(db: Db, platform: Platform): Promise<Pending
         productName: products.name,
         variantName: skus.variantName,
         isBundle: skus.isBundle,
-        status: skus.status,
         lastPushed: platformListings.lastPushedStock,
       })
       .from(platformListings)
@@ -47,7 +46,7 @@ export async function pendingPushes(db: Db, platform: Platform): Promise<Pending
     getAvailability(db),
   ]);
   return rows
-    .map(({ status: _status, ...r }) => ({ ...r, available: available.get(r.skuId) ?? 0 }))
+    .map((r) => ({ ...r, available: available.get(r.skuId) ?? 0 }))
     .filter((r) => r.available !== r.lastPushed);
 }
 
