@@ -11,7 +11,7 @@ import { getDb } from "@/db";
 import { bundleComponents, locations, products, skus, stockMovements } from "@/db/schema";
 import { MOVEMENT_REASON_LABEL } from "@/lib/stock/labels";
 import { getAvailability } from "@/lib/stock/queries";
-import { addComponent, deleteSku, removeComponent, updateComponentQty, updateSku } from "../../../actions";
+import { addComponent, convertToBundleAction, deleteSku, removeComponent, updateComponentQty, updateSku } from "../../../actions";
 import { SkuCommonFields, SkuPhysicalFields } from "../../../sku-fields";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +78,22 @@ export default async function SkuPage({ params }: PageProps<"/products/[id]/skus
           <SubmitButton>儲存貨號</SubmitButton>
         </ActionForm>
       </section>
+
+      {!sku.isBundle && (
+        <section className="border-t border-line pt-6">
+          <h2 className="mb-1 text-section">改成組合</h2>
+          <p className="mb-3 text-aux text-ink-2">
+            這個規格其實是好幾個部件湊成的（例如一車份），就改成組合。目前庫存 {sku.stock ?? 0} 會記一筆盤點調整歸零，
+            之後可售量由部件決定。改了不能改回來。
+          </p>
+          <ActionForm
+            action={convertToBundleAction.bind(null, productId, sku.id)}
+            confirmText={`把 ${sku.code} 改成組合？庫存 ${sku.stock ?? 0} 會歸零，改了不能改回來。`}
+          >
+            <SubmitButton>改成組合</SubmitButton>
+          </ActionForm>
+        </section>
+      )}
 
       <section className="border-t border-line pt-6">
         <ActionForm action={deleteSku.bind(null, productId, sku.id)} confirmText={`刪除貨號 ${sku.code}？`}>

@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { bundleComponents, orderItems, platformListings, products, skus, stockMovements } from "@/db/schema";
 import { type FormState, int, isUniqueViolation, num, optStr, str } from "@/lib/form";
-import { initialStockBatch } from "@/lib/stock/movements";
+import { convertToBundle } from "@/lib/stock/convert-bundle";
+import { initialStockBatch, StockError } from "@/lib/stock/movements";
 
 // ---------- products ----------
 
@@ -190,4 +191,14 @@ export async function removeComponent(bundleSkuId: number, componentSkuId: numbe
     .where(and(eq(bundleComponents.bundleSkuId, bundleSkuId), eq(bundleComponents.componentSkuId, componentSkuId)));
   refresh();
   return null;
+}
+
+export async function convertToBundleAction(productId: number, skuId: number): Promise<FormState> {
+  try {
+    await convertToBundle(getDb(), skuId);
+  } catch (e) {
+    if (e instanceof StockError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/products/${productId}/skus/${skuId}`);
 }
