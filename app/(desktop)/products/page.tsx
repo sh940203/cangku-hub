@@ -47,9 +47,12 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     <>
       <div className="flex items-start justify-between gap-3">
         <PageHeader title="商品" />
-        <ButtonLink href="/products/new" variant="primary">
-          新增商品
-        </ButtonLink>
+        <div className="flex gap-2">
+          <ButtonLink href="/products/import">從平台匯入</ButtonLink>
+          <ButtonLink href="/products/new" variant="primary">
+            新增商品
+          </ButtonLink>
+        </div>
       </div>
       <form className="mb-4 max-w-md">
         <Input name="q" type="search" defaultValue={q} placeholder="搜尋商品名、貨號" className="w-full" />
