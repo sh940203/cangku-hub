@@ -29,4 +29,38 @@ export interface PlatformAdapter {
   cancelledStatuses: readonly string[];
   /** Rows are sheet rows keyed by header, already stripped of PII columns. */
   parseOrders(rows: Record<string, unknown>[]): ParseResult;
+  /** Product/stock template, when the platform's has been confirmed. */
+  listings?: ListingTemplate;
+}
+
+/** One platform variation from a product/stock export. Product data only, no customer data. */
+export type ListingLine = {
+  /** Platform product ID. */
+  itemId: string;
+  itemName: string;
+  /** Platform variation ID; unique per row. */
+  variantId: string;
+  /** Empty for single-variation products. */
+  variantName: string;
+  /** Variation SKU code already typed on the platform; may be empty. */
+  skuCode: string;
+  stock: number;
+};
+
+export type ListingParseResult =
+  | { ok: true; lines: ListingLine[]; skipped: SkippedRow[] }
+  | { ok: false; error: string };
+
+/** A change to one cell (0-based row/col) of a platform template that is written back as-is. */
+export type CellEdit = { row: number; col: number; value: string | number };
+
+/** Platform product template: read listings, and write our codes/stock back into the same file. */
+export interface ListingTemplate {
+  /** What the user downloads, in the seller center's own words. */
+  howToGet: string;
+  parse(rows: readonly (readonly unknown[])[]): ListingParseResult;
+  edits(
+    rows: readonly (readonly unknown[])[],
+    codes: ReadonlyMap<string, { skuCode: string; productCode: string; stock?: number }>,
+  ): CellEdit[];
 }
