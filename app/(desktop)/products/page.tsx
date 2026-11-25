@@ -1,4 +1,4 @@
-import { asc, eq, like, or } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, like, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { LocationTag } from "@/components/stock/location-tag";
 import { StockNumber } from "@/components/stock/stock-number";
@@ -11,30 +11,53 @@ import { getAvailability } from "@/lib/stock/queries";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
-  const q = String((await searchParams).q ?? "").trim();
+  const sp = await searchParams;
+  const q = String(sp.q ?? "").trim();
+  const page = Math.max(1, Number.parseInt(String(sp.page ?? "1"), 10) || 1);
   const db = getDb();
-  const [rows, available] = await Promise.all([
+  // Page over products first, then load only their SKUs (the catalog has thousands of SKUs).
+  const match = q
+    ? or(
+        like(products.name, `%${q}%`),
+        exists(db.select({ x: sql`1` }).from(skus).where(and(eq(skus.productId, products.id), like(skus.code, `%${q}%`)))),
+      )
+    : undefined;
+  const [pageIds, available] = await Promise.all([
     db
-      .select({
-        productId: products.id,
-        productName: products.name,
-        category: products.category,
-        skuId: skus.id,
-        code: skus.code,
-        variantName: skus.variantName,
-        isBundle: skus.isBundle,
-        status: skus.status,
-        safetyStock: skus.safetyStock,
-        locationCode: locations.code,
-      })
+      .select({ id: products.id })
       .from(products)
-      .leftJoin(skus, eq(skus.productId, products.id))
-      .leftJoin(locations, eq(locations.id, skus.locationId))
-      .where(q ? or(like(products.name, `%${q}%`), like(skus.code, `%${q}%`)) : undefined)
-      .orderBy(asc(products.name), asc(skus.code)),
+      .where(match)
+      .orderBy(asc(products.name), asc(products.id))
+      .limit(PAGE_SIZE + 1)
+      .offset((page - 1) * PAGE_SIZE),
     getAvailability(db),
   ]);
+  const hasNext = pageIds.length > PAGE_SIZE;
+  const ids = pageIds.slice(0, PAGE_SIZE).map((p) => p.id);
+  const rows = ids.length
+    ? await db
+        .select({
+          productId: products.id,
+          productName: products.name,
+          category: products.category,
+          skuId: skus.id,
+          code: skus.code,
+          variantName: skus.variantName,
+          isBundle: skus.isBundle,
+          status: skus.status,
+          safetyStock: skus.safetyStock,
+          locationCode: locations.code,
+        })
+        .from(products)
+        .leftJoin(skus, eq(skus.productId, products.id))
+        .leftJoin(locations, eq(locations.id, skus.locationId))
+        .where(inArray(products.id, ids))
+        .orderBy(asc(products.name), asc(products.id), asc(skus.code))
+    : [];
+  const pageHref = (n: number) => `/products?${new URLSearchParams({ ...(q ? { q } : {}), page: String(n) })}`;
 
   const grouped = new Map<number, { name: string; category: string | null; skus: typeof rows }>();
   for (const r of rows) {
@@ -59,7 +82,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
       </form>
 
       {grouped.size === 0 ? (
-        <p className="text-ink-2">{q ? `找不到「${q}」。` : "還沒有商品。按「新增商品」建立第一個。"}</p>
+        <p className="text-ink-2">{q ? `找不到「${q}」。` : page > 1 ? "這一頁沒有商品。" : "還沒有商品。按「新增商品」或「從平台匯入」建立。"}</p>
       ) : (
         <table className="w-full max-w-5xl border-y border-line bg-surface">
           <thead className="text-left text-aux text-ink-2">
@@ -100,6 +123,13 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
             </tbody>
           ))}
         </table>
+      )}
+      {(page > 1 || hasNext) && (
+        <nav className="mt-4 flex max-w-5xl items-center gap-3" aria-label="分頁">
+          {page > 1 && <ButtonLink href={pageHref(page - 1)}>上一頁</ButtonLink>}
+          <span className="text-ink-2">第 {page} 頁</span>
+          {hasNext && <ButtonLink href={pageHref(page + 1)}>下一頁</ButtonLink>}
+        </nav>
       )}
     </>
   );
